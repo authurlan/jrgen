@@ -81,40 +81,30 @@ exports.generateExample = (schema) => {
   if (!schema) {
     return;
   }
-
-  if (schema.default !== undefined) {
-    return schema.default;
-  }
-
-  if (schema.example !== undefined) {
-    return schema.example;
-  }
-
-  if (schema.examples !== undefined) {
-    return schema.examples[0];
-  }
-
-  if (schema.enum !== undefined) {
-    return schema.enum;
-  }
-
+  let example;
   if (schema.type === "object") {
-    return Object.entries(schema.properties).reduce(
-      (accumulator, [propertyKey, propertyValue]) => {
-        accumulator[propertyKey] = exports.generateExample(propertyValue);
-        return accumulator;
-      },
-      {}
-    );
-  }
-
-  if (schema.type === "array") {
-    if (Array.isArray(schema.items)) {
-      return schema.items.map((item) => exports.generateExample(item));
+    example = {};
+    Object.keys(schema.properties).forEach((key) => {
+      example[key] = exports.generateExample(schema.properties[key]);
+    });
+  } else if (schema.type === "array") {
+    if (schema.default !== undefined || schema.example !== undefined) {
+      example = schema.default === undefined ? schema.example : schema.default;
+    } else if (Array.isArray(schema.items)) {
+      example = schema.items.map((item) => exports.generateExample(item));
     } else {
-      return [exports.generateExample(schema.items)];
+      example = [exports.generateExample(schema.items)];
     }
+  } else if (schema.anyOf !== undefined) {
+    example = exports.generateExample(schema.anyOf[0]);
+  } else if (schema.oneOf !== undefined) {
+    example = exports.generateExample(schema.oneOf[0]);
+  } else if (schema.examples !== undefined) {
+    example = schema.default === undefined ? schema.examples[0] : schema.default;
+  } else {
+    example = schema.default === undefined ? schema.example : schema.default;
   }
+  return example;
 };
 
 exports.parsePropertyList = (name, schema) => {
@@ -150,8 +140,10 @@ exports.parsePropertyList = (name, schema) => {
     }
   } else if ( schema.anyOf != undefined ) {
     fullDescription += " - Any Of the following:";
+  } else if ( schema.oneOf != undefined ) {
+    fullDescription += " - One Of the following:";
   } else if ( schema.pattern != undefined) {
-    fullDescription += " pattern: " + schema.pattern;
+    fullDescription += ", pattern: " + schema.pattern;
   }
 
   entries.push({
@@ -221,6 +213,10 @@ exports.parsePropertyList = (name, schema) => {
     });
   } else if (schema.anyOf != undefined ) {
     schema.anyOf.forEach((item, index) => {
+      entries = entries.concat( exports.parsePropertyList(name, item) );
+    });
+  } else if (schema.oneOf != undefined ) {
+    schema.oneOf.forEach((item, index) => {
       entries = entries.concat( exports.parsePropertyList(name, item) );
     });
   }
