@@ -253,8 +253,9 @@ exports.resolveSchemaRefs = async (schema) => {
 };
 
 exports.loadSchema = (schemaPath) => {
+  const cwd = process.cwd();
   if (!path.isAbsolute(schemaPath)) {
-    schemaPath = path.join(process.cwd(), schemaPath);
+    schemaPath = path.join(cwd, schemaPath);
   }
 
   const jsonString = fs.readFileSync(schemaPath, {
@@ -263,7 +264,9 @@ exports.loadSchema = (schemaPath) => {
 
   const schema = yaml.load(jsonString);
 
+  process.chdir(path.dirname(schemaPath));
   const resolvedSchema = exports.resolveSchemaRefs(schema);
+  process.chdir(cwd);
 
   return resolvedSchema;
 };
